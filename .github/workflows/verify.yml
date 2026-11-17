@@ -1,0 +1,23 @@
+name: Verify Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          # Pinned so the rebuilt bundle matches the committed dist byte for byte
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bun test
+      - run: bun run build
+      - name: Check dist is up to date
+        run: git diff --exit-code dist || (echo "::error::dist is stale, run 'bun run build' and commit" && exit 1)
