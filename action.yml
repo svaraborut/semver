@@ -27,6 +27,8 @@ outputs:
     description: The computed version, without the v prefix.
   tag:
     description: The tag name, the version prefixed with v.
+  prerelease:
+    description: Whether the version is a preview rendered from preview-format, 'true' or 'false'.
 runs:
   using: node24
   main: dist/index.js

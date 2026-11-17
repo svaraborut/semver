@@ -79,7 +79,11 @@ Release by tagging the commit, which triggers the workflow again with the releas
 git tag v1.2.0 && git push origin v1.2.0
 ```
 
-Alias tags are never moved in this mode, and `contents: read` is enough.
+Alias tags are never moved in this mode, and `contents: read` is enough. Use the `prerelease` output to tell the two cases apart:
+
+```yaml
+- run: npm publish --tag ${{ steps.semver.outputs.prerelease == 'true' && 'next' || 'latest' }}
+```
 
 ## Previews
 
@@ -108,10 +112,11 @@ For example, `{{VERSION}}-rc{{COUNT}}` renders `3.4.1-rc5`, and `{{VERSION}}-pre
 | `aliases`        | Alias tags to move on release, any of `major`, `minor`, `latest` | `major,minor,latest`      |
 | `minimum-bump`   | The smallest bump to apply, one of `patch`, `minor`, `major`     | `patch`                   |
 
-| Output    | Description                          | Example  |
-| --------- | ------------------------------------ | -------- |
-| `version` | The version, without the `v` prefix  | `3.4.1`  |
-| `tag`     | The tag, the version prefixed by `v` | `v3.4.1` |
+| Output       | Description                                                    | Example  |
+| ------------ | -------------------------------------------------------------- | -------- |
+| `version`    | The version, without the `v` prefix                            | `3.4.1`  |
+| `tag`        | The tag, the version prefixed by `v`                           | `v3.4.1` |
+| `prerelease` | `'true'` if the version is a preview, `'false'` for an `X.Y.Z` | `false`  |
 
 ## Bump rules
 

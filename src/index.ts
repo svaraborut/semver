@@ -16,11 +16,12 @@ import {
 } from './version'
 import { getEnumInput, getEnumListInput, getListInput } from './input.ts'
 
-async function finalize(files: string[], version: string, tag: string): Promise<void> {
+async function finalize(files: string[], version: string, tag: string, prerelease: boolean): Promise<void> {
     for (const file of files) await updateVersionFile(file, version)
     core.info(`Version ${version}, updated ${files.length} files`)
     core.setOutput('version', version)
     core.setOutput('tag', tag)
+    core.setOutput('prerelease', prerelease)
 }
 
 async function run(): Promise<void> {
@@ -40,7 +41,7 @@ async function run(): Promise<void> {
     if (current) {
         const version = formatVersion(current.version)
         core.info(`HEAD is already tagged ${current.tag}, reusing it`)
-        await finalize(inputs.files, version, current.tag)
+        await finalize(inputs.files, version, current.tag, false)
         return
     }
 
@@ -56,13 +57,13 @@ async function run(): Promise<void> {
             count: messages.length,
             sha: await git.headSha()
         })
-        await finalize(inputs.files, version, `v${version}`)
+        await finalize(inputs.files, version, `v${version}`, true)
         return
     }
 
     const version = formatVersion(next)
     const tag = `v${version}`
-    await finalize(inputs.files, version, tag)
+    await finalize(inputs.files, version, tag, false)
     await git.pushRelease(
         tag,
         inputs.aliases.map(alias => aliasTag(alias, next))

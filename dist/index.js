@@ -18945,12 +18945,13 @@ function getEnumListInput(name, allowed) {
 }
 
 // src/index.ts
-async function finalize(files, version, tag) {
+async function finalize(files, version, tag, prerelease) {
   for (const file of files)
     await updateVersionFile(file, version);
   info(`Version ${version}, updated ${files.length} files`);
   setOutput("version", version);
   setOutput("tag", tag);
+  setOutput("prerelease", prerelease);
 }
 async function run() {
   const inputs = {
@@ -18965,7 +18966,7 @@ async function run() {
   if (current) {
     const version = formatVersion(current.version);
     info(`HEAD is already tagged ${current.tag}, reusing it`);
-    await finalize(inputs.files, version, current.tag);
+    await finalize(inputs.files, version, current.tag, false);
     return;
   }
   const previous = latestVersion(await mergedTags());
@@ -18979,12 +18980,12 @@ async function run() {
       count: messages.length,
       sha: await headSha()
     });
-    await finalize(inputs.files, version, `v${version}`);
+    await finalize(inputs.files, version, `v${version}`, true);
     return;
   }
   const version = formatVersion(next);
   const tag = `v${version}`;
-  await finalize(inputs.files, version, tag);
+  await finalize(inputs.files, version, tag, false);
   await pushRelease(tag, inputs.aliases.map((alias) => aliasTag(alias, next)));
   info(`Pushed ${tag}`);
 }
