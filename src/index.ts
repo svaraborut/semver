@@ -1,4 +1,5 @@
 import * as core from '@actions/core'
+import { formatChangelog, repoUrl } from './changelog'
 import { updateVersionFile } from './files'
 import * as git from './git'
 import {
@@ -16,12 +17,20 @@ import {
 } from './version'
 import { getEnumInput, getEnumListInput, getListInput } from './input.ts'
 
-async function finalize(files: string[], version: string, tag: string, prerelease: boolean): Promise<void> {
-    for (const file of files) await updateVersionFile(file, version)
-    core.info(`Version ${version}, updated ${files.length} files`)
-    core.setOutput('version', version)
-    core.setOutput('tag', tag)
-    core.setOutput('prerelease', prerelease)
+interface Outputs {
+    version: string
+    tag: string
+    prerelease: boolean
+    changelog: string
+}
+
+async function finalize(files: string[], outputs: Outputs): Promise<void> {
+    for (const file of files) await updateVersionFile(file, outputs.version)
+    core.info(`Version ${outputs.version}, updated ${files.length} files`)
+    core.setOutput('version', outputs.version)
+    core.setOutput('tag', outputs.tag)
+    core.setOutput('prerelease', outputs.prerelease)
+    core.setOutput('changelog', outputs.changelog)
 }
 
 async function run(): Promise<void> {
@@ -36,17 +45,22 @@ async function run(): Promise<void> {
     // Ensure git history is present
     await git.ensureHistory()
 
+    // HEAD's own tags are excluded so a tagged HEAD still gets the changelog since the previous version.
+    const headTags = await git.headTags()
+    const previous = latestVersion((await git.mergedTags()).filter(tag => !headTags.includes(tag)))
+    const commits = await git.commits(previous?.tag ?? null)
+    const changelog = formatChangelog(commits, repoUrl(process.env))
+
     // A tagged HEAD means a re-run, so reuse its version instead of bumping again.
-    const current = latestVersion(await git.headTags())
+    const current = latestVersion(headTags)
     if (current) {
         const version = formatVersion(current.version)
         core.info(`HEAD is already tagged ${current.tag}, reusing it`)
-        await finalize(inputs.files, version, current.tag, false)
+        await finalize(inputs.files, { version, tag: current.tag, prerelease: false, changelog })
         return
     }
 
-    const previous = latestVersion(await git.mergedTags())
-    const messages = await git.commitMessages(previous?.tag ?? null)
+    const messages = commits.map(commit => commit.message)
     const bump = determineBump(messages, inputs.minimumBump)
     const next = bumpVersion(previous?.version ?? ZERO, bump)
     core.info(`Previous ${previous?.tag ?? 'none'}, ${messages.length} commits, ${bump} bump`)
@@ -57,13 +71,13 @@ async function run(): Promise<void> {
             count: messages.length,
             sha: await git.headSha()
         })
-        await finalize(inputs.files, version, `v${version}`, true)
+        await finalize(inputs.files, { version, tag: `v${version}`, prerelease: true, changelog })
         return
     }
 
     const version = formatVersion(next)
     const tag = `v${version}`
-    await finalize(inputs.files, version, tag, false)
+    await finalize(inputs.files, { version, tag, prerelease: false, changelog })
     await git.pushRelease(
         tag,
         inputs.aliases.map(alias => aliasTag(alias, next))

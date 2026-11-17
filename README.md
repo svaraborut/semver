@@ -112,11 +112,30 @@ For example, `{{VERSION}}-rc{{COUNT}}` renders `3.4.1-rc5`, and `{{VERSION}}-pre
 | `aliases`        | Alias tags to move on release, any of `major`, `minor`, `latest` | `major,minor,latest`      |
 | `minimum-bump`   | The smallest bump to apply, one of `patch`, `minor`, `major`     | `patch`                   |
 
-| Output       | Description                                                    | Example  |
-| ------------ | -------------------------------------------------------------- | -------- |
-| `version`    | The version, without the `v` prefix                            | `3.4.1`  |
-| `tag`        | The tag, the version prefixed by `v`                           | `v3.4.1` |
-| `prerelease` | `'true'` if the version is a preview, `'false'` for an `X.Y.Z` | `false`  |
+| Output       | Description                                                    | Example                     |
+| ------------ | -------------------------------------------------------------- | --------------------------- |
+| `version`    | The version, without the `v` prefix                            | `3.4.1`                     |
+| `tag`        | The tag, the version prefixed by `v`                           | `v3.4.1`                    |
+| `prerelease` | `'true'` if the version is a preview, `'false'` for an `X.Y.Z` | `false`                     |
+| `changelog`  | Markdown list of the commits since the previous version        | see [Changelog](#changelog) |
+
+## Changelog
+
+The `changelog` output lists every commit since the previous `vX.Y.Z` tag, newest first, with the subject line and a link to the commit:
+
+```markdown
+- feat: add prerelease output ([9c7464b](https://github.com/svaraborut/semver/commit/9c7464b...))
+- docs: add automated and manual versioning modes ([e3380af](https://github.com/svaraborut/semver/commit/e3380af...))
+```
+
+On a tagged commit (a re-run, or a manual release) the tag itself is skipped, so the list covers the commits since the tag before it. Without any previous tag, the whole history is listed. Pass it to a release step:
+
+```yaml
+- uses: softprops/action-gh-release@v2
+  with:
+    tag_name: ${{ steps.semver.outputs.tag }}
+    body: ${{ steps.semver.outputs.changelog }}
+```
 
 ## Bump rules
 

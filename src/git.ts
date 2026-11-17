@@ -1,4 +1,5 @@
 import { getExecOutput } from '@actions/exec'
+import type { Commit } from './changelog'
 
 async function git(...args: string[]): Promise<string> {
     const { exitCode, stdout, stderr } = await getExecOutput('git', args, { silent: true, ignoreReturnCode: true })
@@ -29,13 +30,18 @@ export async function headTags(): Promise<string[]> {
     return lines(await git('tag', '--points-at', 'HEAD', '--list', 'v*'))
 }
 
-export async function commitMessages(since: string | null): Promise<string[]> {
+// Newest first. Records are NUL separated, the sha and message are split by a unit separator.
+export async function commits(since: string | null): Promise<Commit[]> {
     const range = since ? `${since}..HEAD` : 'HEAD'
-    const output = await git('log', '--format=%B%x00', range)
+    const output = await git('log', '--format=%H%x1f%B%x00', range)
     return output
         .split('\0')
-        .map(message => message.trim())
+        .map(record => record.trim())
         .filter(Boolean)
+        .map(record => {
+            const [sha = '', message = ''] = record.split('\x1f')
+            return { sha, message: message.trim() }
+        })
 }
 
 // Lightweight tags avoid requiring a configured git user identity on the runner.

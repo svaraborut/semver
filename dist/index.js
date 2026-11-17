@@ -18740,6 +18740,24 @@ function info(message) {
   process.stdout.write(message + os5.EOL);
 }
 
+// src/changelog.ts
+function repoUrl(env) {
+  const server = env.GITHUB_SERVER_URL;
+  const repository = env.GITHUB_REPOSITORY;
+  return server && repository ? `${server}/${repository}` : null;
+}
+function changelogLine(commit, url) {
+  const subject = commit.message.split(`
+`)[0].trim();
+  const short = commit.sha.slice(0, 7);
+  const ref = url ? `[${short}](${url}/commit/${commit.sha})` : short;
+  return `- ${subject} (${ref})`;
+}
+function formatChangelog(commits, url) {
+  return commits.map((commit) => changelogLine(commit, url)).join(`
+`);
+}
+
 // src/files.ts
 import { readFile, writeFile as writeFile2 } from "node:fs/promises";
 import { basename as basename3 } from "node:path";
@@ -18836,10 +18854,13 @@ async function mergedTags() {
 async function headTags() {
   return lines(await git("tag", "--points-at", "HEAD", "--list", "v*"));
 }
-async function commitMessages(since) {
+async function commits(since) {
   const range = since ? `${since}..HEAD` : "HEAD";
-  const output = await git("log", "--format=%B%x00", range);
-  return output.split("\x00").map((message) => message.trim()).filter(Boolean);
+  const output = await git("log", "--format=%H%x1f%B%x00", range);
+  return output.split("\x00").map((record) => record.trim()).filter(Boolean).map((record) => {
+    const [sha = "", message = ""] = record.split("\x1F");
+    return { sha, message: message.trim() };
+  });
 }
 async function pushRelease(tag, aliases) {
   await git("tag", tag);
@@ -18945,13 +18966,14 @@ function getEnumListInput(name, allowed) {
 }
 
 // src/index.ts
-async function finalize(files, version, tag, prerelease) {
+async function finalize(files, outputs) {
   for (const file of files)
-    await updateVersionFile(file, version);
-  info(`Version ${version}, updated ${files.length} files`);
-  setOutput("version", version);
-  setOutput("tag", tag);
-  setOutput("prerelease", prerelease);
+    await updateVersionFile(file, outputs.version);
+  info(`Version ${outputs.version}, updated ${files.length} files`);
+  setOutput("version", outputs.version);
+  setOutput("tag", outputs.tag);
+  setOutput("prerelease", outputs.prerelease);
+  setOutput("changelog", outputs.changelog);
 }
 async function run() {
   const inputs = {
@@ -18962,15 +18984,18 @@ async function run() {
     minimumBump: getEnumInput("minimum-bump", BUMPS, "patch")
   };
   await ensureHistory();
-  const current = latestVersion(await headTags());
+  const headTags2 = await headTags();
+  const previous = latestVersion((await mergedTags()).filter((tag) => !headTags2.includes(tag)));
+  const commits2 = await commits(previous?.tag ?? null);
+  const changelog = formatChangelog(commits2, repoUrl(process.env));
+  const current = latestVersion(headTags2);
   if (current) {
     const version = formatVersion(current.version);
     info(`HEAD is already tagged ${current.tag}, reusing it`);
-    await finalize(inputs.files, version, current.tag, false);
+    await finalize(inputs.files, { version, tag: current.tag, prerelease: false, changelog });
     return;
   }
-  const previous = latestVersion(await mergedTags());
-  const messages = await commitMessages(previous?.tag ?? null);
+  const messages = commits2.map((commit) => commit.message);
   const bump = determineBump(messages, inputs.minimumBump);
   const next = bumpVersion(previous?.version ?? ZERO, bump);
   info(`Previous ${previous?.tag ?? "none"}, ${messages.length} commits, ${bump} bump`);
@@ -18980,12 +19005,12 @@ async function run() {
       count: messages.length,
       sha: await headSha()
     });
-    await finalize(inputs.files, version, `v${version}`, true);
+    await finalize(inputs.files, { version, tag: `v${version}`, prerelease: true, changelog });
     return;
   }
   const version = formatVersion(next);
   const tag = `v${version}`;
-  await finalize(inputs.files, version, tag, false);
+  await finalize(inputs.files, { version, tag, prerelease: false, changelog });
   await pushRelease(tag, inputs.aliases.map((alias) => aliasTag(alias, next)));
   info(`Pushed ${tag}`);
 }
