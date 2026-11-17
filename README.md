@@ -114,3 +114,5 @@ Aliases are ignored when looking for the last version; only full `vX.Y.Z` tags c
 ## Re-runs
 
 If the current commit already has a `vX.Y.Z` tag, the action reuses that version, updates the files, and pushes nothing, so re-running a job is safe. If another run pushed the same tag on a different commit first, the action fails.
+
+The same applies to manually tagged commits, and it takes precedence over `preview`: a preview run on a commit tagged `v1.0.0` outputs `1.0.0`, not a rendered `preview-format` version. Avoid publishing from preview runs on tagged commits, or the release version is published early.
