@@ -4,17 +4,21 @@ GitHub Action for agile version bumping on any code repository. Versions are tra
 
 On each run the action:
 
-1. Finds the last version, the highest `vX.Y.Z` tag reachable from the current commit (or `0.0.0` if there is none).`
+1. Finds the last version, the highest `vX.Y.Z` tag reachable from the current commit (or `0.0.0` if there is none).
 2. Determines the bump (`patch`, `minor`, `major`) from the commit messages since that version.
 3. Writes the new version into the configured version files (`package.json`, `pyproject.toml`, Python `__version__`) in the workspace, so the following build and publish steps use it.
 4. Tags the current commit as `vX.Y.Z`, updates the alias tags (like `v3`, `v3.4`, `latest`), and pushes them.
 
-## Usage
+The action is used in one of two modes: automated, where it releases versions by itself, or manual, where you release by pushing tags and the action only reads them.
+
+## Automated Versioning Mode
+
+Whenever `preview` is `false` (the default), every run releases: the action computes the next SemVer, pushes the `vX.Y.Z` tag and moves the aliases. Drive `preview` from the branch to release from `main` only, while other branches get preview versions without pushing anything.
 
 ```yaml
 on:
   push:
-    branches: [main]
+    branches: ['main', 'stage']
 
 permissions:
   contents: write
@@ -27,26 +31,59 @@ jobs:
       - id: semver
         uses: svaraborut/semver@v1
         with:
+          preview: ${{ github.ref != 'refs/heads/main' }}
           files: package.json
       - run: npm publish
       - run: echo "Released ${{ steps.semver.outputs.tag }}"
 ```
 
+- On `main`, a `feat:` commit after `v3.4.0` releases `3.5.0`, and pushes `v3.5.0`, `v3`, `v3.5` and `latest`.
+- On any other branch, the same commit outputs `3.5.0-rc1` and pushes nothing.
+
 The action needs `contents: write` to push tags. Shallow checkouts are fine, because the action fetches the full history and tags by itself.
 
 Tags pushed with the default `GITHUB_TOKEN` do not trigger other workflows, so build and publish in the same job, right after this action.
 
-## Previews
+## Manual Versioning Mode
 
-When `preview` is `true`, the next version is rendered with `preview-format` and no tag is pushed. Previews are ephemeral: every preview carries the next SemVer until the next release.
+With `preview` always `true`, the action never pushes a tag. You decide when to release by pushing a `vX.Y.Z` tag yourself, and the action only reads tags to output the version:
+
+- On a commit tagged `vX.Y.Z`, it outputs that version as is (e.g. `1.2.0`).
+- On any other commit, it outputs a preview of the next version (e.g. `1.2.1-rc3`).
 
 ```yaml
-- id: semver
-  uses: svaraborut/semver@v1
-  with:
-    preview: ${{ github.ref != 'refs/heads/main' }}
-    files: package.json, pyproject.toml
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: semver
+        uses: svaraborut/semver@v1
+        with:
+          preview: true
+          files: package.json
+      - run: echo "Building ${{ steps.semver.outputs.version }}"
 ```
+
+Release by tagging the commit, which triggers the workflow again with the release version:
+
+```sh
+git tag v1.2.0 && git push origin v1.2.0
+```
+
+Alias tags are never moved in this mode, and `contents: read` is enough.
+
+## Previews
+
+When `preview` is `true`, the next version is rendered with `preview-format` and no tag is pushed, unless the current commit is already tagged (see [Re-runs](#re-runs)). Previews are ephemeral: every preview carries the next SemVer until the next release.
 
 The template supports these placeholders:
 
