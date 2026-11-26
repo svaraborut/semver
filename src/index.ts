@@ -16,6 +16,11 @@ import {
     type Bump
 } from './version'
 import { getEnumInput, getEnumListInput, getListInput } from './input.ts'
+import { savePendingRelease } from './state'
+
+// `step` pushes tags inside this step, `job` defers the push to the post step after the job succeeds.
+const PUSHES = ['step', 'job'] as const
+type Push = (typeof PUSHES)[number]
 
 interface Outputs {
     version: string
@@ -39,7 +44,8 @@ async function run(): Promise<void> {
         files: getListInput('files'),
         previewFormat: core.getInput('preview-format') || '{{VERSION}}-rc{{COUNT}}',
         aliases: getEnumListInput<Alias>('aliases', ALIASES),
-        minimumBump: getEnumInput<Bump>('minimum-bump', BUMPS, 'patch')
+        minimumBump: getEnumInput<Bump>('minimum-bump', BUMPS, 'patch'),
+        push: getEnumInput<Push>('push', PUSHES, 'step')
     }
 
     // Ensure git history is present
@@ -77,11 +83,16 @@ async function run(): Promise<void> {
 
     const version = formatVersion(next)
     const tag = `v${version}`
+    const aliases = inputs.aliases.map(alias => aliasTag(alias, next))
+    await git.createTags(tag, aliases)
     await finalize(inputs.files, { version, tag, prerelease: false, changelog })
-    await git.pushRelease(
-        tag,
-        inputs.aliases.map(alias => aliasTag(alias, next))
-    )
+
+    if (inputs.push === 'job') {
+        savePendingRelease({ tag, aliases })
+        core.info(`Tagged ${tag}, pushing after the job succeeds`)
+        return
+    }
+    await git.pushTags(tag, aliases)
     core.info(`Pushed ${tag}`)
 }
 

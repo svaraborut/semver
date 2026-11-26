@@ -111,6 +111,7 @@ For example, `{{VERSION}}-rc{{COUNT}}` renders `3.4.1-rc5`, and `{{VERSION}}-pre
 | `preview-format` | Template of the preview version                                  | `{{VERSION}}-rc{{COUNT}}` |
 | `aliases`        | Alias tags to move on release, any of `major`, `minor`, `latest` | `major,minor,latest`      |
 | `minimum-bump`   | The smallest bump to apply, one of `patch`, `minor`, `major`     | `patch`                   |
+| `push`           | When to push the release tags, `step` or `job`                   | `step`                    |
 
 | Output       | Description                                                    | Example                     |
 | ------------ | -------------------------------------------------------------- | --------------------------- |
@@ -174,6 +175,32 @@ On release, each alias is force-pushed to point at the new version:
 - `latest`: `latest`
 
 Aliases are ignored when looking for the last version; only full `vX.Y.Z` tags count.
+
+## Push strategy
+
+The `push` input controls when a release pushes its tags. Either way the tags are created locally in the action step, so a version already tagged on another commit fails the run immediately.
+
+- `step` (default): the tags are pushed inside the action step, before the following steps run. A failing publish step leaves the tags pointing at a release that never shipped.
+- `job`: the tags are pushed by the action's post step, only when every step of the job succeeded. A failing job pushes nothing, so a re-run computes the same version again. The push covers the job the action runs in, not other jobs depending on it with `needs:`.
+
+The `step` push also works as a lock: when two release runs overlap, the second one sees the tag or fails to push it before publishing anything. With `job` the tags reach the remote only at the end, so overlapping runs can compute and publish the same version, and the second one only fails at the final push. Serialize the release runs with a concurrency group:
+
+```yaml
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - id: semver
+        uses: svaraborut/semver@v1
+        with:
+          files: package.json
+          push: job
+      - run: npm publish
+```
 
 ## Re-runs
 

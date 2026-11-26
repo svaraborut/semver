@@ -18739,6 +18739,16 @@ function error(message, properties = {}) {
 function info(message) {
   process.stdout.write(message + os5.EOL);
 }
+function saveState(name, value) {
+  const filePath = process.env["GITHUB_STATE"] || "";
+  if (filePath) {
+    return issueFileCommand("STATE", prepareKeyValueMessage(name, value));
+  }
+  issueCommand("save-state", { name }, toCommandValue(value));
+}
+function getState(name) {
+  return process.env[`STATE_${name}`] || "";
+}
 
 // src/changelog.ts
 function repoUrl(env) {
@@ -18869,8 +18879,16 @@ async function commits(since) {
     return { sha, message: message.trim() };
   });
 }
-async function pushRelease(tag, aliases) {
-  await git("tag", tag);
+async function createTags(tag, aliases) {
+  try {
+    await git("tag", tag);
+  } catch (error) {
+    throw new Error(`Could not create ${tag}, it may already exist on another commit. ${error.message}`);
+  }
+  for (const alias of aliases)
+    await git("tag", "--force", alias);
+}
+async function pushTags(tag, aliases) {
   try {
     await git("push", "origin", `refs/tags/${tag}`);
   } catch (error) {
@@ -18878,8 +18896,6 @@ async function pushRelease(tag, aliases) {
   }
   if (aliases.length === 0)
     return;
-  for (const alias of aliases)
-    await git("tag", "--force", alias);
   await git("push", "--force", "origin", ...aliases.map((alias) => `refs/tags/${alias}`));
 }
 
@@ -18972,7 +18988,18 @@ function getEnumListInput(name, allowed) {
   return getListInput(name).map((v) => oneOf(name, v, allowed));
 }
 
+// src/state.ts
+var KEY = "release";
+function savePendingRelease(release) {
+  saveState(KEY, JSON.stringify(release));
+}
+function loadPendingRelease() {
+  const raw = getState(KEY);
+  return raw ? JSON.parse(raw) : null;
+}
+
 // src/index.ts
+var PUSHES = ["step", "job"];
 async function finalize(files, outputs) {
   for (const file of files)
     await updateVersionFile(file, outputs.version);
@@ -18988,7 +19015,8 @@ async function run() {
     files: getListInput("files"),
     previewFormat: getInput("preview-format") || "{{VERSION}}-rc{{COUNT}}",
     aliases: getEnumListInput("aliases", ALIASES),
-    minimumBump: getEnumInput("minimum-bump", BUMPS, "patch")
+    minimumBump: getEnumInput("minimum-bump", BUMPS, "patch"),
+    push: getEnumInput("push", PUSHES, "step")
   };
   await ensureHistory();
   const headTags2 = await headTags();
@@ -19017,8 +19045,15 @@ async function run() {
   }
   const version = formatVersion(next);
   const tag = `v${version}`;
+  const aliases = inputs.aliases.map((alias) => aliasTag(alias, next));
+  await createTags(tag, aliases);
   await finalize(inputs.files, { version, tag, prerelease: false, changelog });
-  await pushRelease(tag, inputs.aliases.map((alias) => aliasTag(alias, next)));
+  if (inputs.push === "job") {
+    savePendingRelease({ tag, aliases });
+    info(`Tagged ${tag}, pushing after the job succeeds`);
+    return;
+  }
+  await pushTags(tag, aliases);
   info(`Pushed ${tag}`);
 }
 run().catch((error) => setFailed(error instanceof Error ? error.message : String(error)));

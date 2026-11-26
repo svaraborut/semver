@@ -22,6 +22,10 @@ inputs:
     description: Smallest bump to apply, one of patch, minor, major.
     required: false
     default: patch
+  push:
+    description: When to push the release tags, step (inside this step) or job (after every step of the job succeeds).
+    required: false
+    default: step
 outputs:
   version:
     description: The computed version, without the v prefix.
@@ -34,6 +38,8 @@ outputs:
 runs:
   using: node24
   main: dist/index.js
+  post: dist/post.js
+  post-if: success()
 branding:
   icon: 'airplay'
   color: 'red'

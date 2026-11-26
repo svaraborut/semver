@@ -45,14 +45,22 @@ export async function commits(since: string | null): Promise<Commit[]> {
 }
 
 // Lightweight tags avoid requiring a configured git user identity on the runner.
-export async function pushRelease(tag: string, aliases: string[]): Promise<void> {
-    await git('tag', tag)
+// Tags are fetched beforehand, so a version already tagged on another commit fails here, before any push.
+export async function createTags(tag: string, aliases: string[]): Promise<void> {
+    try {
+        await git('tag', tag)
+    } catch (error) {
+        throw new Error(`Could not create ${tag}, it may already exist on another commit. ${(error as Error).message}`)
+    }
+    for (const alias of aliases) await git('tag', '--force', alias)
+}
+
+export async function pushTags(tag: string, aliases: string[]): Promise<void> {
     try {
         await git('push', 'origin', `refs/tags/${tag}`)
     } catch (error) {
         throw new Error(`Could not push ${tag}, it may already exist on another commit. ${(error as Error).message}`)
     }
     if (aliases.length === 0) return
-    for (const alias of aliases) await git('tag', '--force', alias)
     await git('push', '--force', 'origin', ...aliases.map(alias => `refs/tags/${alias}`))
 }
