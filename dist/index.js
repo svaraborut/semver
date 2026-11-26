@@ -18810,13 +18810,20 @@ var PROCESSORS = [
         throw new Error("missing __version__ assignment");
       return content.replace(re, (_, prefix, quote) => `${prefix}${quote}${version}${quote}`);
     }
+  },
+  {
+    name: "placeholder",
+    match: /./,
+    update: (content, version) => {
+      const re = /([`'"])0\.0\.0\1/g;
+      if (!re.test(content))
+        throw new Error("missing quoted 0.0.0 placeholder");
+      return content.replace(re, (_, quote) => `${quote}${version}${quote}`);
+    }
   }
 ];
 function setVersion(file, content, version) {
-  const processor = PROCESSORS.find((p) => p.match.test(basename3(file)));
-  if (!processor)
-    throw new Error(`Unsupported version file: ${file}`);
-  return processor.update(content, version);
+  return PROCESSORS.find((p) => p.match.test(basename3(file))).update(content, version);
 }
 async function updateVersionFile(file, version) {
   const content = await readFile(file, "utf8");

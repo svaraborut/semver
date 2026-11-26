@@ -3,7 +3,7 @@ description: Bump the version from Conventional Commits, update version files an
 author: Borut Svara
 inputs:
   files:
-    description: Version files to update (package.json, pyproject.toml, *.py with __version__), comma or newline separated.
+    description: Version files to update (package.json, pyproject.toml, *.py with __version__, any other file with a quoted 0.0.0), comma or newline separated.
     required: false
     default: ''
   preview:

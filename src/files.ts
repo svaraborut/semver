@@ -52,13 +52,21 @@ export const PROCESSORS: Processor[] = [
             if (!re.test(content)) throw new Error('missing __version__ assignment')
             return content.replace(re, (_, prefix: string, quote: string) => `${prefix}${quote}${version}${quote}`)
         }
+    },
+    {
+        // Catch-all, must stay last: replaces every `0.0.0`, '0.0.0' or "0.0.0" with the same quote on both sides
+        name: 'placeholder',
+        match: /./,
+        update: (content, version) => {
+            const re = /([`'"])0\.0\.0\1/g
+            if (!re.test(content)) throw new Error('missing quoted 0.0.0 placeholder')
+            return content.replace(re, (_, quote: string) => `${quote}${version}${quote}`)
+        }
     }
 ]
 
 export function setVersion(file: string, content: string, version: string): string {
-    const processor = PROCESSORS.find(p => p.match.test(basename(file)))
-    if (!processor) throw new Error(`Unsupported version file: ${file}`)
-    return processor.update(content, version)
+    return PROCESSORS.find(p => p.match.test(basename(file)))!.update(content, version)
 }
 
 export async function updateVersionFile(file: string, version: string): Promise<void> {

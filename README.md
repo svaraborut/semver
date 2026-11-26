@@ -159,6 +159,9 @@ Files are detected by name and edited in place, keeping formatting and comments.
 | `package.json`   | Top-level `"version"`                          |
 | `pyproject.toml` | `version` under `[project]` or `[tool.poetry]` |
 | `*.py`           | `__version__ = "..."`                          |
+| Any other file   | Every `` `0.0.0` ``, `'0.0.0'` or `"0.0.0"`    |
+
+Any other file, such as a TypeScript module or a Markdown document, has every `0.0.0` wrapped in matching backticks or quotes replaced. Unquoted occurrences like `pkg@0.0.0` are left untouched.
 
 Since the files are never committed, the repository can keep a placeholder such as `0.0.0`.
 

@@ -43,6 +43,24 @@ describe('python module', () => {
     })
 })
 
-test('rejects unsupported files', () => {
-    expect(() => setVersion('Cargo.toml', '', '1.0.0')).toThrow('Unsupported')
+describe('placeholder', () => {
+    test('replaces quoted 0.0.0 in strings', () => {
+        expect(setVersion('src/version.ts', "export const VERSION = '0.0.0'\n", '3.4.1')).toBe(
+            "export const VERSION = '3.4.1'\n"
+        )
+    })
+
+    test('replaces every match and keeps the quotes', () => {
+        const input = 'Install `0.0.0` or "0.0.0".\n'
+        expect(setVersion('README.md', input, '1.2.3')).toBe('Install `1.2.3` or "1.2.3".\n')
+    })
+
+    test('ignores mismatched quotes and unquoted occurrences', () => {
+        const input = `a = '0.0.0"\nb = pkg@0.0.0\nc = "10.0.0.0"\nd = "0.0.0"\n`
+        expect(setVersion('Cargo.toml', input, '1.0.0')).toBe(input.replace('d = "0.0.0"', 'd = "1.0.0"'))
+    })
+
+    test('fails without a placeholder', () => {
+        expect(() => setVersion('README.md', 'version 0.0.0\n', '1.0.0')).toThrow('missing')
+    })
 })
