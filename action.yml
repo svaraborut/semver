@@ -15,9 +15,9 @@ inputs:
     required: false
     default: '{{VERSION}}-rc{{COUNT}}'
   aliases:
-    description: Moving tags to update on release, any of major, minor, latest.
+    description: Moving tags to update on release, any of major, minor, latest. None by default.
     required: false
-    default: 'major,minor,latest'
+    default: ''
   minimum-bump:
     description: Smallest bump to apply, one of patch, minor, major.
     required: false

@@ -7,13 +7,13 @@ On each run the action:
 1. Finds the last version, the highest `vX.Y.Z` tag reachable from the current commit (or `0.0.0` if there is none).
 2. Determines the bump (`patch`, `minor`, `major`) from the commit messages since that version.
 3. Writes the new version into the configured version files (`package.json`, `pyproject.toml`, Python `__version__`) in the workspace, so the following build and publish steps use it.
-4. Tags the current commit as `vX.Y.Z`, updates the alias tags (like `v3`, `v3.4`, `latest`), and pushes them.
+4. Tags the current commit as `vX.Y.Z`, moves any configured alias tags (like `v3`, `v3.4`, `latest`), and pushes them.
 
 The action is used in one of two modes: automated, where it releases versions by itself, or manual, where you release by pushing tags and the action only reads them.
 
 ## Automated Versioning Mode
 
-Whenever `preview` is `false` (the default), every run releases: the action computes the next SemVer, pushes the `vX.Y.Z` tag and moves the aliases. Drive `preview` from the branch to release from `main` only, while other branches get preview versions without pushing anything.
+Whenever `preview` is `false` (the default), every run releases: the action computes the next SemVer, pushes the `vX.Y.Z` tag and moves any configured aliases. Drive `preview` from the branch to release from `main` only, while other branches get preview versions without pushing anything.
 
 ```yaml
 on:
@@ -37,7 +37,7 @@ jobs:
       - run: echo "Released ${{ steps.semver.outputs.tag }}"
 ```
 
-- On `main`, a `feat:` commit after `v3.4.0` releases `3.5.0`, and pushes `v3.5.0`, `v3`, `v3.5` and `latest`.
+- On `main`, a `feat:` commit after `v3.4.0` releases `3.5.0` and pushes `v3.5.0`.
 - On any other branch, the same commit outputs `3.5.0-rc1` and pushes nothing.
 
 The action needs `contents: write` to push tags. Shallow checkouts are fine, because the action fetches the full history and tags by itself.
@@ -109,7 +109,7 @@ For example, `{{VERSION}}-rc{{COUNT}}` renders `3.4.1-rc5`, and `{{VERSION}}-pre
 | `files`          | Version files to update, comma or newline separated              |                           |
 | `preview`        | Produce a preview version, without pushing any tag               | `false`                   |
 | `preview-format` | Template of the preview version                                  | `{{VERSION}}-rc{{COUNT}}` |
-| `aliases`        | Alias tags to move on release, any of `major`, `minor`, `latest` | `major,minor,latest`      |
+| `aliases`        | Alias tags to move on release, any of `major`, `minor`, `latest` |                           |
 | `minimum-bump`   | The smallest bump to apply, one of `patch`, `minor`, `major`     | `patch`                   |
 | `push`           | When to push the release tags, `step` or `job`                   | `step`                    |
 
@@ -168,7 +168,7 @@ Since the files are never committed, the repository can keep a placeholder such 
 
 ## Aliases
 
-On release, each alias is force-pushed to point at the new version:
+No alias is moved by default. List them in `aliases` (e.g. `aliases: major,minor,latest`) and, on release, each one is force-pushed to point at the new version:
 
 - `major`: `v3`
 - `minor`: `v3.4`
