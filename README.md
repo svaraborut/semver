@@ -111,6 +111,7 @@ For example, `{{VERSION}}-rc{{COUNT}}` renders `3.4.1-rc5`, and `{{VERSION}}-pre
 | `preview-format` | Template of the preview version                                  | `{{VERSION}}-rc{{COUNT}}` |
 | `aliases`        | Alias tags to move on release, any of `major`, `minor`, `latest` |                           |
 | `minimum-bump`   | The smallest bump to apply, one of `patch`, `minor`, `major`     | `patch`                   |
+| `maximum-bump`   | The largest bump to apply, one of `patch`, `minor`, `major`      | `major`                   |
 | `push`           | When to push the release tags, `step` or `job`                   | `step`                    |
 
 | Output       | Description                                                    | Example                     |
@@ -140,7 +141,7 @@ On a tagged commit (a re-run, or a manual release) the tag itself is skipped, so
 
 ## Bump rules
 
-The bump follows [Conventional Commits](https://www.conventionalcommits.org). The highest bump across all commits since the last version wins, and it is never lower than `minimum-bump`.
+The bump follows [Conventional Commits](https://www.conventionalcommits.org). The highest bump across all commits since the last version wins, and it is never lower than `minimum-bump` or higher than `maximum-bump`. A `minimum-bump` higher than `maximum-bump` fails the run.
 
 | Commit                                      | Bump    |
 | ------------------------------------------- | ------- |
@@ -149,7 +150,7 @@ The bump follows [Conventional Commits](https://www.conventionalcommits.org). Th
 | `feat: ...`, `feat(api): ...`               | `minor` |
 | Anything else (`fix:`, `chore:`, free text) | `patch` |
 
-There is no special handling below `1.0.0`: a breaking change on `0.4.2` releases `1.0.0`. To start from a different version, push the tag manually (e.g. `git tag v1.0.0 && git push origin v1.0.0`).
+There is no special handling below `1.0.0`: a breaking change on `0.4.2` releases `1.0.0`. Set `maximum-bump: minor` to release breaking changes as minor bumps instead, for example to stay on `0.x`, and push the next major tag manually when it is due. To start from a different version, push the tag manually (e.g. `git tag v1.0.0 && git push origin v1.0.0`).
 
 ## Version files
 

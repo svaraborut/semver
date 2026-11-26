@@ -40,6 +40,16 @@ describe('determineBump', () => {
         expect(determineBump(['fix: a'], 'minor')).toBe('minor')
         expect(determineBump([], 'patch')).toBe('patch')
     })
+
+    test('caps the bump at maximum', () => {
+        expect(determineBump(['feat!: a'], 'patch', 'minor')).toBe('minor')
+        expect(determineBump(['fix: a\n\nBREAKING CHANGE: b', 'feat: c'], 'patch', 'patch')).toBe('patch')
+        expect(determineBump(['feat!: a'], 'patch', 'major')).toBe('major')
+    })
+
+    test('fails when minimum is higher than maximum', () => {
+        expect(() => determineBump([], 'major', 'minor')).toThrow('higher than maximum-bump')
+    })
 })
 
 describe('bumpVersion', () => {

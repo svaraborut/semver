@@ -22,6 +22,10 @@ inputs:
     description: Smallest bump to apply, one of patch, minor, major.
     required: false
     default: patch
+  maximum-bump:
+    description: Largest bump to apply, one of patch, minor, major. Use minor to release breaking changes as minor bumps.
+    required: false
+    default: major
   push:
     description: When to push the release tags, step (inside this step) or job (after every step of the job succeeds).
     required: false

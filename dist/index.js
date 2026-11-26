@@ -18931,11 +18931,15 @@ function commitBump(message) {
     return "minor";
   return "patch";
 }
-function determineBump(messages, minimum) {
-  let rank = BUMPS.indexOf(minimum);
+function determineBump(messages, minimum, maximum = "major") {
+  const floor = BUMPS.indexOf(minimum);
+  const ceiling = BUMPS.indexOf(maximum);
+  if (floor > ceiling)
+    throw new Error(`minimum-bump "${minimum}" is higher than maximum-bump "${maximum}"`);
+  let rank = floor;
   for (const message of messages)
     rank = Math.max(rank, BUMPS.indexOf(commitBump(message)));
-  return BUMPS[rank];
+  return BUMPS[Math.min(rank, ceiling)];
 }
 function bumpVersion(version, bump) {
   if (bump === "major")
@@ -19016,6 +19020,7 @@ async function run() {
     previewFormat: getInput("preview-format") || "{{VERSION}}-rc{{COUNT}}",
     aliases: getEnumListInput("aliases", ALIASES),
     minimumBump: getEnumInput("minimum-bump", BUMPS, "patch"),
+    maximumBump: getEnumInput("maximum-bump", BUMPS, "major"),
     push: getEnumInput("push", PUSHES, "step")
   };
   await ensureHistory();
@@ -19031,7 +19036,7 @@ async function run() {
     return;
   }
   const messages = commits2.map((commit) => commit.message);
-  const bump = determineBump(messages, inputs.minimumBump);
+  const bump = determineBump(messages, inputs.minimumBump, inputs.maximumBump);
   const next = bumpVersion(previous?.version ?? ZERO, bump);
   info(`Previous ${previous?.tag ?? "none"}, ${messages.length} commits, ${bump} bump`);
   if (inputs.preview) {

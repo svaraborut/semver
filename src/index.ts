@@ -45,6 +45,7 @@ async function run(): Promise<void> {
         previewFormat: core.getInput('preview-format') || '{{VERSION}}-rc{{COUNT}}',
         aliases: getEnumListInput<Alias>('aliases', ALIASES),
         minimumBump: getEnumInput<Bump>('minimum-bump', BUMPS, 'patch'),
+        maximumBump: getEnumInput<Bump>('maximum-bump', BUMPS, 'major'),
         push: getEnumInput<Push>('push', PUSHES, 'step')
     }
 
@@ -67,7 +68,7 @@ async function run(): Promise<void> {
     }
 
     const messages = commits.map(commit => commit.message)
-    const bump = determineBump(messages, inputs.minimumBump)
+    const bump = determineBump(messages, inputs.minimumBump, inputs.maximumBump)
     const next = bumpVersion(previous?.version ?? ZERO, bump)
     core.info(`Previous ${previous?.tag ?? 'none'}, ${messages.length} commits, ${bump} bump`)
 

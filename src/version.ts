@@ -39,10 +39,13 @@ export function commitBump(message: string): Bump {
     return 'patch'
 }
 
-export function determineBump(messages: string[], minimum: Bump): Bump {
-    let rank = BUMPS.indexOf(minimum)
+export function determineBump(messages: string[], minimum: Bump, maximum: Bump = 'major'): Bump {
+    const floor = BUMPS.indexOf(minimum)
+    const ceiling = BUMPS.indexOf(maximum)
+    if (floor > ceiling) throw new Error(`minimum-bump "${minimum}" is higher than maximum-bump "${maximum}"`)
+    let rank = floor
     for (const message of messages) rank = Math.max(rank, BUMPS.indexOf(commitBump(message)))
-    return BUMPS[rank]!
+    return BUMPS[Math.min(rank, ceiling)]!
 }
 
 export function bumpVersion(version: Version, bump: Bump): Version {
